@@ -1,3 +1,23 @@
+
+
+######### mac #############
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+######### android #############
+.gradle
+# built application files
+*.apk
+*.ap_
+
+
+########## vvv cordova vvv ###########
+platforms/
+plugins/
+
+
+########## vvv node vvv ###########
 # Logs
 logs
 *.log
