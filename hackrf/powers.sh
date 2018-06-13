@@ -18,10 +18,10 @@ trap exit_script SIGINT SIGTERM
        echo ","
        echo "  {"
      fi
-     echo -n "    powers:"
+     echo -n '    "powers":'
      hackrf_sweep -1 -f1:7250 -w 100000 -l32 -g8 2>/dev/null | grep 2018 | ./sorter.pl
      echo ","
-     echo -n "    location:"
+     echo -n '    "location":'
      curl -sL http://localhost:3000 | jq .
      echo -n "  }"
   done

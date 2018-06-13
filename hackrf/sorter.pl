@@ -1,4 +1,8 @@
 #!/usr/bin/perl
+sub uniq {
+    my %seen;
+    grep !$seen{$_}++, @_;
+}
 my %powers;
 while (my $line = <STDIN>) {
      chomp($line);
@@ -13,9 +17,10 @@ while (my $line = <STDIN>) {
 }
 @unsorted_powers = keys %powers;
 @sorted_powers = sort { $b <=> $a } @unsorted_powers;
+@unique_powers = uniq( @sorted_powers );
 $lines = 0;
 print "[";
-foreach $power (@sorted_powers) {
+foreach $power (@unique_powers) {
   foreach $line (@{ $powers{$power} }) {
     ( $date, $time, $fstart, $fstop, $fwidth, $unknown, @rest ) = split(/, /, $line);
     my $count = 0;
