@@ -11,7 +11,7 @@ CREDS=${CREDS:--u ${ES_USER}:${ES_PASSWORD}}
 USER="${USER:-$(whoami)}"
 
 #  "template": "${ES_INDEX}",
-curl -k ${CREDS} -sL -H "Content-Type: application/json" -XPUT ${ES_PROTO}${ES_HOST}/_template/${ES_INDEX}_template --data-binary @- <<EOF || true
+curl ${CREDS} -sL -H "Content-Type: application/json" -XPUT ${ES_PROTO}${ES_HOST}/_template/${ES_INDEX}_template --data-binary @- <<EOF || true
 {
   "index_patterns": ["${ES_INDEX}"],
   "mappings": {
@@ -30,7 +30,7 @@ curl -k ${CREDS} -sL -H "Content-Type: application/json" -XPUT ${ES_PROTO}${ES_H
 }
 EOF
   
-#curl -k ${CREDS} -sL -XGET ${ES_PROTO}${ES_HOST}"/_template/${ES_INDEX}_template?pretty"
+#curl ${CREDS} -sL -XGET ${ES_PROTO}${ES_HOST}"/_template/${ES_INDEX}_template?pretty"
 
 for filename in $@ ; do
 
@@ -59,7 +59,7 @@ for filename in $@ ; do
 EOF
       fi
 
-    done | curl -k ${CREDS} -sL -H "Content-Type: application/x-ndjson" -XPOST ${ES_PROTO}${ES_HOST}/${ES_INDEX}/${ES_TYPE}/_bulk --data-binary @- > /dev/null 2>&1
+    done | curl ${CREDS} -sL -H "Content-Type: application/x-ndjson" -XPOST ${ES_PROTO}${ES_HOST}/${ES_INDEX}/${ES_TYPE}/_bulk --data-binary @- > /dev/null 2>&1
   done
 
 done
