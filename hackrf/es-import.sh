@@ -2,6 +2,11 @@
 
 set -eo pipefail
 
+if [ -z "$ES_PASSWORD" ]; then
+  echo "Please export ES_PASSWORD= your elasticsearch password"
+  exit 1
+fi
+
 ES_HOST="${ES_HOST:-localhost:9200}"
 ES_PROTO="${ES_PROTO:-https://}"
 ES_INDEX="${ES_INDEX:-edges}"
@@ -39,6 +44,22 @@ for filename in $@ ; do
     exit 1
   fi
 
+  if [ "$(tail -1 $filename)" = '    "location":' ] ; then
+    echo "{}" >> $filename
+    echo "}]}" >> $filename
+  fi
+  if [ "$(tail -1 $filename)" = '    "powers":[' ]; then
+    echo "]," >> $filename
+    echo '"location" : {},' >> $filename
+    echo '"final" : true' >> $filename
+    echo "}]}" >> $filename
+  fi
+
+  if ! jq . $filename > /dev/null 2>&1 ; then
+    # Use sed in-place regex, on Linux or Mac
+    sed -i -e 's/\(power.*\)}$/\1},/' $filename || sed -i% -e 's/\(power.*\)}$/\1},/' $filename
+  fi
+
   count=$(jq '.edges | length' $filename)
   seq 0 $count | while read number ; do
     echo "processing $number of $count from $filename" 1>&2
@@ -49,8 +70,8 @@ for filename in $@ ; do
     timestamp=$(echo $location | jq ".timestamp")
     max=$(echo "$record" | jq ".powers | length")
     seq 0 $max | while read index ; do
-      power=$(echo "$record" | jq ".powers[$index].power")
-      frequency=$(echo "$record" | jq ".powers[$index].freq")
+      power=$(echo "$record" | jq ".powers[$index].power" || echo "null")
+      frequency=$(echo "$record" | jq ".powers[$index].freq" || echo "null")
 
       if [ "$power" != null -a "$frequency" != null ]; then
         cat <<EOF
@@ -58,8 +79,7 @@ for filename in $@ ; do
 { "frequency" : $frequency, "power" : $power, "geo" : { "lat" : $lat, "lon" : $lon }, "location" : $location, "created" : $timestamp }
 EOF
       fi
-
-    done | curl ${CREDS} -sL -H "Content-Type: application/x-ndjson" -XPOST ${ES_PROTO}${ES_HOST}/${ES_INDEX}/${ES_TYPE}/_bulk --data-binary @- > /dev/null 2>&1
+    done | curl -k ${CREDS} -sL -H "Content-Type: application/x-ndjson" -XPOST ${ES_PROTO}${ES_HOST}/${ES_INDEX}/${ES_TYPE}/_bulk --data-binary @- > /dev/null 2>&1
   done
 
 done
