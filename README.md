@@ -51,4 +51,4 @@ git clone https://github.com/sofwerx/EDGES
 cd /EDGES/hackrf  
 ./powers.sh  
 
-(Run import.sh with env variables to import into elasticsearch)
+(Run import.sh with env variables Run es-import.sh with env variables ES_HOST, ES_USER, ES_PASSWORD, ES_PROTO, ES_INDEX, ES_TYPE to import into elasticsearch)to import into elasticsearch)
