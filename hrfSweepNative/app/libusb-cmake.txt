@@ -1,0 +1,26 @@
+
+
+include_directories(${LIBUSB_ROOT_REL}/android)
+include_directories(${LIBUSB_ROOT_REL}/armeabi-v7a)
+
+#link_directories(${LIBUSB_ROOT_REL}/android/libs/armeabi-v7a)
+link_directories(${LINK_LIB_DIR})
+
+add_library( # Sets the name of the library.
+                        usb-lib
+
+                        # Sets the library as a shared library.
+                        SHARED
+
+                        # Provides a relative path to your source file(s).
+                          ${LIBUSB_ROOT_REL}/libusb/core.c
+                          ${LIBUSB_ROOT_REL}/libusb/descriptor.c
+                          ${LIBUSB_ROOT_REL}/libusb/hotplug.c
+                          ${LIBUSB_ROOT_REL}/libusb/io.c
+                          ${LIBUSB_ROOT_REL}/libusb/sync.c
+                          ${LIBUSB_ROOT_REL}/libusb/strerror.c
+                          ${LIBUSB_ROOT_REL}/libusb/os/linux_usbfs.c
+                          ${LIBUSB_ROOT_REL}/libusb/os/poll_posix.c
+                          ${LIBUSB_ROOT_REL}/libusb/os/threads_posix.c
+                          ${LIBUSB_ROOT_REL}/libusb/os/linux_netlink.c
+                      )

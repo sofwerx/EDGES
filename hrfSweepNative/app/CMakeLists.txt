@@ -4,6 +4,8 @@
 # Sets the minimum version of CMake required to build the native library.
 
 cmake_minimum_required(VERSION 3.4.1)
+#set(GCC_COVERAGE_LINK_FLAGS -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/arm64-v8a)
+
 
 
 # Creates and names a library, sets it as either STATIC
@@ -21,19 +23,31 @@ add_library( # Sets the name of the library.
              src/main/cpp/native-lib.c
            )
 
-#add_subdirectory(src/main/cpp/libusb/)
 
-set(LIBUSB_ROOT_REL src/main/cpp/libusb/)
-include_directories(${LIBUSB_ROOT_REL}/android)
+set(LINK_LIB_DIR /Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/arm64-v8a)
+set(INCLUDE_DIR include)
+set(LIBUSB_ROOT_REL src/main/cpp/libusb)
+set(HACKRF_ROOT_REL src/main/cpp/hackrf)
+
+# for libhackrf
+set (PROJECT_SOURCE_DIR   ${HACKRF_ROOT_REL}/host)
+set(LIBUSB_LIBRARIES    ${LIBUSB_ROOT_REL}/libusb)
+set (LIBUSB_INCLUDE_DIR  ${LIBUSB_ROOT_REL}/libusb)
+
 include_directories(${LIBUSB_ROOT_REL}/libusb)
+include_directories(${LIBUSB_ROOT_REL}/android)
+include_directories(${LIBUSB_ROOT_REL}/arm64-v8a)
 
-link_directories(${LIBUSB_ROOT_REL}/android/libs/armeabi-v7a)
+#link_directories(${LIBUSB_ROOT_REL}/android/libs/arm64-v8a)
+link_directories(${LINK_LIB_DIR})
+include_directories(${INCLUDE_DIR})
+
 
 add_library( # Sets the name of the library.
                         usb-lib
 
                         # Sets the library as a shared library.
-                        SHARED
+                        STATIC
 
                         # Provides a relative path to your source file(s).
                           ${LIBUSB_ROOT_REL}/libusb/core.c
@@ -48,6 +62,21 @@ add_library( # Sets the name of the library.
                           ${LIBUSB_ROOT_REL}/libusb/os/linux_netlink.c
                       )
 
+
+
+set (HACKRF_SRC ${HACKRF_ROOT_REL}/host/libhackrf/src)
+include_directories(${HACKRF_SRC})
+
+add_library( # Sets the name of the library.
+                        hackrf-lib
+
+                        # Sets the library as a shared library.
+                        STATIC
+
+                        # Provides a relative path to your source file(s).
+                        ${HACKRF_SRC}/hackrf.c
+            )
+
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
 # default, you only need to specify the name of the public NDK library
@@ -59,11 +88,13 @@ find_library( # Sets the name of the path variable.
               android
             )
 find_library(log-lib log)
+#find_library(fftw3-lib fftw3)
+
 
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this
 # build script, prebuilt third-party libraries, or system libraries.
-
+#add_library(  hackrf-lib    STATIC   )
 target_link_libraries( # Specifies the target library.
                        native-lib
 
@@ -71,5 +102,36 @@ target_link_libraries( # Specifies the target library.
                        # included in the NDK.
                        ${android-lib}
                      )
+
+
 target_link_libraries(usb-lib ${log-lib})
+
+set_property(TARGET usb-lib APPEND_STRING PROPERTY LINK_FLAGS " -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/armeabi-v7a")
+set_property(TARGET usb-lib APPEND_STRING PROPERTY LINK_FLAGS " -mfloat-abi=softfp")
+set_property(TARGET usb-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -mfloat-abi=softfp)
+set_property(TARGET usb-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/include)
+
+
+target_link_libraries(hackrf-lib usb-lib)
+#target_link_libraries(hackrf-lib fftw3)
+target_link_libraries(hackrf-lib fftw3f)
+
+
+
+set_property(TARGET hackrf-lib APPEND_STRING PROPERTY LINK_FLAGS " -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/armeabi-v7a")
+set_property(TARGET hackrf-lib APPEND_STRING PROPERTY LINK_FLAGS " -mfloat-abi=softfp")
+set_property(TARGET hackrf-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -mfloat-abi=softfp)
+set_property(TARGET hackrf-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/include)
+
+
 target_link_libraries(native-lib usb-lib)
+target_link_libraries(native-lib hackrf-lib)
+#target_link_libraries(native-lib fftw3)
+target_link_libraries(native-lib fftw3f)
+
+
+set_property(TARGET native-lib APPEND_STRING PROPERTY LINK_FLAGS " -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/armeabi-v7a")
+set_property(TARGET native-lib APPEND_STRING PROPERTY LINK_FLAGS " -mfloat-abi=softfp")
+set_property(TARGET native-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -mfloat-abi=softfp)
+set_property(TARGET native-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/include)
+

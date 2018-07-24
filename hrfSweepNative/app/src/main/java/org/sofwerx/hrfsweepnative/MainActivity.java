@@ -2,11 +2,9 @@ package org.sofwerx.hrfsweepnative;
 
 
 import android.os.Bundle;
+import android.support.design.widget.TabLayout;
 import android.widget.TextView;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -17,36 +15,69 @@ import android.hardware.usb.*;
 import java.util.*;
 
 import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+import static android.view.View.*;
 
 public class MainActivity extends AppCompatActivity {
 
     static {
         System.loadLibrary("native-lib");
+//        System.loadLibrary("fftw3f");
+//        System.loadLibrary("usb");
+//        System.loadLibrary("hackrf");
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
-        TextView tv = (TextView) findViewById(R.id.sample_text);
-        tv.setText("USB devices:\n");
+        TextView tv = findViewById(R.id.main_text);
+        tv.setVisibility(VISIBLE);
+        tv.setText("Welcome");
+    }
+
+    public void showSensorList(View view) {
+        TextView tv = findViewById(R.id.main_text);
+        tv.setText("\n\n\n\nSensors:\n========\n\n");
+
+        SensorInterface si = new SensorInterface();
+        tv.append(si.listSensors());
+    }
+
+    public void showUSBList(View view) {
+        TextView tv = findViewById(R.id.main_text);
+        tv.setText("\n\n\n\nUSB devices (from Java):\n=========================\n");
 
         UsbManager usbMgr;
         HashMap<String, UsbDevice> usbDevs;
         usbMgr = getSystemService(UsbManager.class);
+
+        if (usbMgr == null) {
+            tv.append("FAILED to get UsbManager object.\n");
+        } else {
+            usbDevs = usbMgr.getDeviceList();
+
+            for (String k : usbDevs.keySet()) {
+                UsbDevice ud = usbDevs.get(k);
+                tv.append("\n");
+                tv.append(ud.getDeviceName());
+                tv.append("\n");
+                tv.append(ud.getProductName());
+                tv.append("\n");
+                }
+            }
+        }
+
+    public void showHackRF(View view) {
+        TextView tv = findViewById(R.id.main_text);
+        tv.setText("\n\n\n\nHackRF:\n========\n\n");
+
         Intent myIntent = new Intent();
+        UsbDeviceConnection devconn = null;
         int hrfFD = 0; // HackRF file descriptor to pass to libusb
+        UsbManager usbMgr;
+        HashMap<String, UsbDevice> usbDevs;
+        usbMgr = getSystemService(UsbManager.class);
 
         PendingIntent pi = PendingIntent.getActivity(this, 1, myIntent, FLAG_UPDATE_CURRENT);
         if (usbMgr == null) {
@@ -56,21 +87,25 @@ public class MainActivity extends AppCompatActivity {
 
             for (String k : usbDevs.keySet()) {
                 UsbDevice ud = usbDevs.get(k);
-                usbMgr.requestPermission(ud, pi);
-
-                tv.append(ud.getProductName());
-                tv.append("\n");
 
                 if (ud.getProductName().endsWith("HackRF One")) {
-                    UsbDeviceConnection devconn = usbMgr.openDevice(ud);
-                    hrfFD = devconn.getFileDescriptor();
+                    usbMgr.requestPermission(ud, pi);
+                    devconn = usbMgr.openDevice(ud);
+                    if (devconn == null) {
+                        tv.append("FAILED to find HackRF USB device.\n");
+
+                    } else {
+                        hrfFD = devconn.getFileDescriptor();
+
+                        // call to native method
+                        SensorInterface si = new SensorInterface();
+                        tv.append(si.showHackRF(hrfFD));
+
+                        devconn.close();
+                    }
                 }
             }
         }
-
-        // call to native method
-        SensorInterface si = new SensorInterface();
-        tv.append(si.listSensors(hrfFD));
     }
 
     @Override
@@ -108,5 +143,7 @@ class HelloFromNative {
 }
 
 class SensorInterface {
-    native String listSensors(int fd);
+    native String listSensors();
+
+    native String showHackRF(int fd);
 }
