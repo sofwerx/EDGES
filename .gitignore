@@ -6,6 +6,7 @@
 .Trashes
 
 ######### android #############
+.idea
 .gradle
 # built application files
 *.apk
