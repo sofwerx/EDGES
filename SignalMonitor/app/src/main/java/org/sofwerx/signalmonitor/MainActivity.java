@@ -1,7 +1,9 @@
 package org.sofwerx.signalmonitor;
 
 import android.Manifest;
+import android.location.GnssClock;
 import android.os.Bundle;
+import android.os.Environment;
 import android.widget.TextView;
 
 import android.support.v7.app.AppCompatActivity;
@@ -9,10 +11,8 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 
-
 import java.util.Collection;
 import java.util.HashMap;
-import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -30,14 +30,18 @@ import android.location.GnssStatus;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
 
-import org.json.JSONObject;
 import static java.time.Instant.now;
 import android.app.AlertDialog;
 
 import mil.nga.geopackage.BoundingBox;
 import mil.nga.geopackage.GeoPackage;
 import mil.nga.geopackage.GeoPackageManager;
+import mil.nga.geopackage.attributes.AttributesDao;
+import mil.nga.geopackage.attributes.AttributesRow;
+import mil.nga.geopackage.db.GeoPackageCoreConnection;
 import mil.nga.geopackage.db.GeoPackageDataType;
+import mil.nga.geopackage.extension.related.ExtendedRelation;
+import mil.nga.geopackage.extension.related.ExtendedRelationsDao;
 import mil.nga.geopackage.factory.GeoPackageFactory;
 import mil.nga.geopackage.features.columns.GeometryColumns;
 import mil.nga.geopackage.features.user.FeatureColumn;
@@ -48,14 +52,25 @@ import mil.nga.geopackage.schema.TableColumnKey;
 import mil.nga.sf.GeometryType;
 import mil.nga.sf.Point;
 
+class SatStatus {
+    String constellation;
+    int svid;
+
+    double cn0;
+    boolean in_fix;
+
+    boolean has_almanac;
+    boolean has_ephemeris;
+    boolean has_carrier_freq;
+
+    double elevation_deg;
+    double azimuth_deg;
+    double carrier_freq_hz;
+
+}
+
 
 public class MainActivity extends AppCompatActivity {
-
-    String GpkgFilename = "SignalMonitor";
-    final String PtsTable = "gps_observation_points";
-    final String DataTable = "gps_observation_data";
-    final long WGS84_SRS = 4326;
-
 
     HashMap<Integer, String> SatType = new HashMap<Integer, String>() {
         {
@@ -69,49 +84,53 @@ public class MainActivity extends AppCompatActivity {
 
         }
     };
+    final long WGS84_SRS = 4326;
 
-    HashMap<String, HashMap> SatStatus = new HashMap<>();
-    HashMap<String, HashMap> SatInfo = new HashMap<>();
+    String GpkgFilename = "SignalMonitor";
+    String GpkgFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
+
+    final String PtsTable = "gps_observation_points";
+    final String extTblName = "sat_data";
+    final String clkTblName = "rcvr_clock";
+    final String mapTblName = PtsTable + "_" + extTblName;
+    final String clkmapTblName = extTblName + "_" + clkTblName;
+
+    HashMap<String, SatStatus> SatStatus = new HashMap<>();
+    HashMap<String, GnssMeasurement> SatInfo = new HashMap<>();
 
     GeoPackageManager GpkgManager = null;
     GeoPackage GPSgpkg = null;
-//    SQLiteDatabase GPSdb = null;
+
 
     private final GnssStatus.Callback StatusListener = new GnssStatus.Callback() {
         public void onSatelliteStatusChanged(final GnssStatus status) {
 
+            String displayTxt = "";
             int numSats = status.getSatelliteCount();
 
             for (int i = 0; i < numSats; ++i) {
+                SatStatus thisSat = new SatStatus();
+                thisSat.constellation = SatType.get(status.getConstellationType(i));
+                thisSat.svid = status.getSvid(i);
+                thisSat.cn0 = status.getCn0DbHz(i);
 
-                if (status.usedInFix(i)) {
-                    String con = SatType.get(status.getConstellationType(i));
+                thisSat.has_almanac = status.hasAlmanacData(i);
+                thisSat.has_ephemeris = status.hasEphemerisData(i);
+                thisSat.has_carrier_freq = status.hasCarrierFrequencyHz(i);
 
-                    HashMap<String, String> thisSat = new HashMap<String, String>();
-                    thisSat.put("HasAlmanac", String.valueOf(status.hasAlmanacData(i)));
-                    thisSat.put("HasEphemeris", String.valueOf(status.hasEphemerisData(i)));
-                    thisSat.put("HasCarrierFreq", String.valueOf(status.hasCarrierFrequencyHz(i)));
+                thisSat.azimuth_deg = status.getAzimuthDegrees(i);
+                thisSat.elevation_deg = status.getElevationDegrees(i);
+                thisSat.cn0 = status.getCn0DbHz(i);
 
-                    thisSat.put("ElevationDeg", String.valueOf(status.getElevationDegrees(i)));
-                    thisSat.put("AzimuthDeg", String.valueOf(status.getAzimuthDegrees(i)));
-                    thisSat.put("CarrierFreq", String.valueOf(status.getCarrierFrequencyHz(i)));
-                    thisSat.put("Cn0DbHz", String.valueOf(status.getCn0DbHz(i)));
-                    thisSat.put("Constellation", con);
-                    thisSat.put("Svid", String.valueOf(status.getSvid(i)));
-                    thisSat.put("UsedInFix", String.valueOf(status.usedInFix(i)));
+                String hashkey = thisSat.constellation + status.getSvid(i);
+                SatStatus.put(hashkey, thisSat);
 
-                    String hashkey = con + status.getSvid(i);
-                    SatStatus.put(hashkey, thisSat);
-                }
+                displayTxt = displayTxt + thisSat.constellation + thisSat.svid + "\n";
             }
 
-            JSONObject satJSON = new JSONObject();
-            if (SatStatus != null) {
-                satJSON = new JSONObject(SatStatus);
-            }
 
             TextView stat_tv = findViewById(R.id.status_text);
-            stat_tv.setText(satJSON.toString());
+            stat_tv.setText(displayTxt);
         }
     };
 
@@ -119,31 +138,97 @@ public class MainActivity extends AppCompatActivity {
 
         public void onGnssMeasurementsReceived(GnssMeasurementsEvent event) {
             Collection<GnssMeasurement> gm = event.getMeasurements();
+            String displayTxt = "";
 
-//            Iterator<GnssMeasurement> gmiter = gm.iterator();
+            GnssClock clk = event.getClock();
+
+            AttributesDao clkDao = GPSgpkg.getAttributesDao(clkTblName);
+            AttributesRow clkrow = clkDao.newRow();
+
+            clkrow.setValue("time_nanos", clk.getTimeNanos());
+            if (clk.hasTimeUncertaintyNanos()) {
+                clkrow.setValue("time_uncertainty_nanos", clk.getTimeUncertaintyNanos());
+            }
+            if (clk.hasBiasNanos()) {
+                clkrow.setValue("bias_nanos", clk.getBiasNanos());
+            }
+            if (clk.hasFullBiasNanos()) {
+                clkrow.setValue("full_bias_nanos", clk.getFullBiasNanos());
+            }
+            if (clk.hasBiasUncertaintyNanos()) {
+                clkrow.setValue("bias_uncertainty_nanos", clk.getTimeUncertaintyNanos());
+            }
+            if (clk.hasDriftNanosPerSecond()) {
+                clkrow.setValue("drift_nanos_per_sec", clk.getDriftNanosPerSecond());'
+            }
+            if (clk.hasDriftUncertaintyNanosPerSecond()) {
+                clkrow.setValue("drift_uncertainty_nps", clk.getDriftUncertaintyNanosPerSecond());
+            }
+            if (clk.hasLeapSecond()) {
+                clkrow.setValue("leap_second", clk.getLeapSecond());
+            }
+            clkrow.setValue("hw_clock_discontinuity_count", clk.getHardwareClockDiscontinuityCount());
+
+            clkrow.setValue("data_dump", clk.toString());
+            clkDao.insert(clkrow);
+
+
+
             for(final GnssMeasurement g : gm) {
 
                 String con = SatType.get(g.getConstellationType());
-
-                HashMap<String, String> thisSat = new HashMap<String, String>() {
-                    {
-                        put("AGCLevelDb", String.valueOf(g.getAutomaticGainControlLevelDb()));
-                        put("Cn0DbHz", String.valueOf(g.getCn0DbHz()));
-                        put("Multipath", String.valueOf(g.getMultipathIndicator()));
-                        put("SnrDb", String.valueOf(g.getSnrInDb()));
-                        put("SatState", String.valueOf(g.getState()));
-                        put("Svid", String.valueOf(g.getSvid()));
-                    }
-                };
-
                 String hashkey = con + g.getSvid();
-                SatInfo.put(hashkey, thisSat);
+
+                HashMap<String, String> thisSat = new HashMap<String, String>();
+
+                AttributesDao satDao = GPSgpkg.getAttributesDao("sat_data");
+                AttributesRow satrow = satDao.newRow();
+
+                satrow.setValue("svid", g.getSvid());
+                satrow.setValue("constellation", con);
+                satrow.setValue("cn0", g.getCn0DbHz());
+                if (g.hasAutomaticGainControlLevelDb()) {
+                    satrow.setValue("agc", g.getAutomaticGainControlLevelDb());
+                }
+                satrow.setValue("sync_state_flags", g.getState());
+                satrow.setValue("sat_time_nanos", g.getReceivedSvTimeNanos());
+                satrow.setValue("sat_time_1sigma_nanos", g.getReceivedSvTimeUncertaintyNanos());
+                satrow.setValue("rcvr_time_offset_nanos", g.getTimeOffsetNanos());
+                satrow.setValue("multipath", g.getMultipathIndicator());
+                if (g.hasCarrierFrequencyHz()) {
+                    satrow.setValue("carrier_freq_hz", g.getCarrierFrequencyHz());
+                }
+                satrow.setValue("accum_delta_range", g.getAccumulatedDeltaRangeMeters());
+                satrow.setValue("accum_delta_range_1sigma", g.getAccumulatedDeltaRangeUncertaintyMeters());
+                satrow.setValue("accum_delta_range_state_flags", g.getAccumulatedDeltaRangeState());
+                satrow.setValue("pseudorange_rate_mps", g.getPseudorangeRateMetersPerSecond());
+                satrow.setValue("pseudorange_rate_1sigma", g.getPseudorangeRateUncertaintyMetersPerSecond());
+
+                if (SatStatus.containsKey(hashkey)) {
+                    satrow.setValue("in_fix", SatStatus.get(hashkey).in_fix);
+
+                    satrow.setValue("has_almanac", SatStatus.get(hashkey).has_almanac);
+                    satrow.setValue("has_ephemeris", SatStatus.get(hashkey).has_ephemeris);
+                    satrow.setValue("has_carrier_freq", SatStatus.get(hashkey).has_carrier_freq);
+
+                    satrow.setValue("elevation_deg", SatStatus.get(hashkey).elevation_deg);
+                    satrow.setValue("azimuth_deg", SatStatus.get(hashkey).azimuth_deg);
+                }
+                displayTxt = displayTxt + g.toString() + "\n";
+
+                satrow.setValue("data_dump", g.toString());
+                satDao.insert(satrow);
+
+                SatInfo.put(hashkey, g);
+
+                // TODO: link sat records to associated rcvr clock record
+
             }
 
-            JSONObject satJSON = new JSONObject(SatInfo);
+//            JSONObject satJSON = new JSONObject(SatInfo);
 
             TextView meas_tv = findViewById(R.id.measurement_text);
-            meas_tv.setText(satJSON.toString());
+            meas_tv.setText(displayTxt);
         }
     };
 
@@ -208,8 +293,10 @@ public class MainActivity extends AppCompatActivity {
             frow.setValue("VerticalAccuracy", loc.getVerticalAccuracyMeters());
             frow.setValue("data_dump", loc.toString());
 
-
             featDao.insert(frow);
+
+
+            // TODO: link location geometry row to associated sat records
 
             boolean dirty = false;
             BoundingBox bb = featDao.getBoundingBox();
@@ -261,10 +348,14 @@ public class MainActivity extends AppCompatActivity {
         stat_tv.setText("Acquiring satellites...\n", TextView.BufferType.EDITABLE);
         cur_tv.setText("Acquiring satellites...\n", TextView.BufferType.EDITABLE);
 
-        Toolbar toolbar = findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.main_toolbar);
         setSupportActionBar(toolbar);
 
-        ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        String[] perms = {Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            Manifest.permission.SEND_SMS
+        };
+        ActivityCompat.requestPermissions(this, perms, 1);
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             stat_tv.setText("Location access denied.");
@@ -276,33 +367,36 @@ public class MainActivity extends AppCompatActivity {
             locMgr.requestLocationUpdates(locMgr.getBestProvider(crit, true), (long) 1000, (float) 0.0, locListener);
         }
 
-        ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.SEND_SMS}, 2);
+        String fileTime = now().toString();
+        fileTime = fileTime.replace('/', '-');
+        fileTime = fileTime.replace(':', '-');
+        fileTime = fileTime.replace("-", "");
 
-        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 3);
 
-        GpkgFilename = GpkgFilename + now().toString() + ".gpkg";
-        File dbFile = new File(this.getFilesDir(), GpkgFilename);
+        GpkgFilename = GpkgFolder + "/" + GpkgFilename + fileTime + ".gpkg";
+//        File dbFile = new File(this.getFilesDir(), GpkgFilename);
 
         GpkgManager = GeoPackageFactory.getManager(this);
-        if (GpkgManager.exists(GpkgFilename)) {
-//            GPSgpkg = GpkgManager.open(GpkgFilename, true);
-            GpkgManager.delete(GpkgFilename);
+        if (! GpkgManager.exists(GpkgFilename)) {
+            GpkgManager.create(GpkgFilename);
 
         }
 
-        if (GpkgManager.create(GpkgFilename)) {
-                GPSgpkg = GpkgManager.open(GpkgFilename, true);
-        }
+        GPSgpkg = GpkgManager.open(GpkgFilename, true);
 
 
-        AlertDialog.Builder dlgBuilder = new AlertDialog.Builder(this);
         if (GPSgpkg == null) {
+            AlertDialog.Builder dlgBuilder = new AlertDialog.Builder(this);
+
             // TODO: handle this for real
             dlgBuilder.setMessage("GPSgpkg is null")
                     .setTitle("Oops!");
+
+            dlgBuilder.show();
         } else {
             GPSgpkg.createGeometryColumnsTable();
             GPSgpkg.createExtensionsTable();
+            GPSgpkg.createExtendedRelationsTable();
 
             GeometryColumns gcol = new GeometryColumns();
             gcol.setId(new TableColumnKey(PtsTable, "geom"));
@@ -332,15 +426,110 @@ public class MainActivity extends AppCompatActivity {
                     new BoundingBox(180.0, 90.0, -180.0, -90.0),
                     WGS84_SRS);
 
+            ExtendedRelationsDao extrelDao = GPSgpkg.getExtendedRelationsDao();
+            ExtendedRelation extrel = new ExtendedRelation();
+            extrel.setBaseTableName(PtsTable);
+            extrel.setBasePrimaryColumn("id");
+            extrel.setMappingTableName(mapTblName);
+            extrel.setRelatedTableName("sat_data");
+            extrel.setRelatedPrimaryColumn("id");
+            extrel.setRelationName("simple_attributes");
+
+            GeoPackageCoreConnection db = GPSgpkg.getDatabase();
+
+            // Related Tables Extension setup
+            String sql = "INSERT INTO gpkg_contents " +
+                    "(table_name, data_type, identifier) " +
+                    "VALUES ('" + extTblName + "', 'attributes', '" + extTblName + "');";
+            db.execSQL(sql);
+
+
+            sql = "INSERT INTO gpkg_extensions " +
+                    "(table_name, extension_name, definition, scope) " +
+                    "VALUES ('gpkgext_relations', 'related_tables', 'TBD', 'read-write');";
+            db.execSQL(sql);
+
+
+            sql = "CREATE TABLE " + extTblName + " (" +
+                    " id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    " svid INTEGER, " +
+                    " constellation TEXT, " +
+                    " cn0 REAL, " +
+                    " agc REAL, " +
+                    " in_fix BOOLEAN, " +
+
+                    " sync_state_flags INTEGER, " +
+                    " sync_state_txt TEXT, " +
+                    " sat_time_nanos REAL, " +
+                    " sat_time_1sigma_nanos REAL, " +
+                    " rcvr_time_offset_nanos REAL, " +
+                    " multipath INTEGER, " +
+
+                    " has_carrier_freq BOOLEAN, " +
+                    " carrier_freq_hz REAL, " +
+                    " accum_delta_range REAL, " +
+                    " accum_delta_range_1sigma REAL, " +
+                    " accum_delta_range_state_flags INTEGER, " +
+                    " accum_delta_range_state_txt TEXT, " +
+                    " pseudorange_rate_mps REAL, " +
+                    " pseudorange_rate_1sigma REAL, " +
+
+                    " has_ephemeris BOOLEAN, " +
+                    " has_almanac BOOLEAN, " +
+                    " azimuth_deg REAL, " +
+                    " elevation_deg REAL, " +
+
+                    " data_dump TEXT " +
+                    ");";
+            db.execSQL(sql);
+
+            sql = "INSERT INTO gpkg_contents " +
+                    "(table_name, data_type, identifier) " +
+                    "VALUES ('" + clkTblName + "', 'attributes', '" + clkTblName + "');";
+            db.execSQL(sql);
+
+            sql = "CREATE TABLE " + clkTblName + " (" +
+                    " id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    " time_nanos INTEGER," +
+                    " time_uncertainty_nanos REAL, " +
+                    " bias_nanos REAL, " +
+                    " bias_uncertainty_nanos REAL," +
+                    " full_bias_nanos REAL," +
+                    " drift_nanos_per_sec REAL," +
+                    " drift_uncertainty_nps REAL," +
+                    " hw_clock_discontinuity_count INTEGER," +
+                    " leap_second INTEGER," +
+                    " has_bias_nanos BOOLEAN," +
+                    " has_bias_uncertainty BOOLEAN," +
+                    " has_full_bias_nanos BOOLEAN," +
+                    " has_leap_second BOOLEAN," +
+                    " has_time_uncertainty BOOLEAN," +
+                    " data_dump TEXT " +
+                    ");";
+            db.execSQL(sql);
+
+
+            sql = "CREATE TABLE " + mapTblName + " (" +
+                    " base_id INTEGER NOT NULL, " +
+                    " related_id INTEGER NOT NULL " +
+                    ");";
+            db.execSQL(sql);
+
+            sql = "CREATE TABLE " + clkmapTblName + " (" +
+                    " base_id INTEGER NOT NULL, " +
+                    " related_id INTEGER NOT NULL " +
+                    ");";
+            db.execSQL(sql);
+
             List<String> tbls = GPSgpkg.getTables();
             tbls.add(GPSgpkg.getApplicationId());
-            String dlgMsg = String.join(" - ", tbls);
-            dlgBuilder.setMessage(dlgMsg)
-                    .setTitle(GpkgFilename);
+
+            String dlgMsg = "SignalMonitor: " + String.join(" - ", tbls);
+
+            Toolbar main_toolbar = findViewById(R.id.main_toolbar);
+            main_toolbar.setTitle(dlgMsg);
+
         }
-        AlertDialog gpkgDlg = dlgBuilder.create();
-        gpkgDlg.show();
-//        GPSgpkg.execSQL("PRAGMA journal_mode = OFF;");
         GPSgpkg.close();
 
         GPSgpkg = GpkgManager.open(GpkgFilename, true);
@@ -373,7 +562,5 @@ public class MainActivity extends AppCompatActivity {
 
         return super.onOptionsItemSelected(item);
     }
-
-
 
 }
