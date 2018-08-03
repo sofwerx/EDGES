@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
                 clkrow.setValue("bias_uncertainty_nanos", clk.getTimeUncertaintyNanos());
             }
             if (clk.hasDriftNanosPerSecond()) {
-                clkrow.setValue("drift_nanos_per_sec", clk.getDriftNanosPerSecond());'
+                clkrow.setValue("drift_nanos_per_sec", clk.getDriftNanosPerSecond());
             }
             if (clk.hasDriftUncertaintyNanosPerSecond()) {
                 clkrow.setValue("drift_uncertainty_nps", clk.getDriftUncertaintyNanosPerSecond());
