@@ -1,6 +1,8 @@
 package org.sofwerx.signalmonitor;
 
 import android.Manifest;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.location.GnssClock;
 import android.os.Bundle;
 import android.os.Environment;
@@ -13,6 +15,7 @@ import android.view.MenuItem;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -32,6 +35,8 @@ import android.location.GnssMeasurementsEvent;
 
 import static java.time.Instant.now;
 import android.app.AlertDialog;
+
+import javax.crypto.spec.GCMParameterSpec;
 
 import mil.nga.geopackage.BoundingBox;
 import mil.nga.geopackage.GeoPackage;
@@ -97,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
     HashMap<String, SatStatus> SatStatus = new HashMap<>();
     HashMap<String, GnssMeasurement> SatInfo = new HashMap<>();
+    HashMap<String, Integer> SatRowsToMap = new HashMap<>();
 
     GeoPackageManager GpkgManager = null;
     GeoPackage GPSgpkg = null;
@@ -125,9 +131,10 @@ public class MainActivity extends AppCompatActivity {
                 String hashkey = thisSat.constellation + status.getSvid(i);
                 SatStatus.put(hashkey, thisSat);
 
-                displayTxt = displayTxt + thisSat.constellation + thisSat.svid + "\n";
+                if (status.usedInFix(i)) {
+                    displayTxt = displayTxt + thisSat.constellation + thisSat.svid + "\n";
+                }
             }
-
 
             TextView stat_tv = findViewById(R.id.status_text);
             stat_tv.setText(displayTxt);
@@ -140,10 +147,14 @@ public class MainActivity extends AppCompatActivity {
             Collection<GnssMeasurement> gm = event.getMeasurements();
             String displayTxt = "";
 
+            TextView meas_tv = findViewById(R.id.measurement_text);
+
             GnssClock clk = event.getClock();
 
             AttributesDao clkDao = GPSgpkg.getAttributesDao(clkTblName);
             AttributesRow clkrow = clkDao.newRow();
+
+            SatRowsToMap.clear();
 
             clkrow.setValue("time_nanos", clk.getTimeNanos());
             if (clk.hasTimeUncertaintyNanos()) {
@@ -172,7 +183,9 @@ public class MainActivity extends AppCompatActivity {
             clkrow.setValue("data_dump", clk.toString());
             clkDao.insert(clkrow);
 
-
+            GeoPackageCoreConnection db = GPSgpkg.getDatabase();
+            String[] dummy = {};
+            int clkid = db.max(clkTblName, "id", "id > 0", dummy);
 
             for(final GnssMeasurement g : gm) {
 
@@ -181,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
 
                 HashMap<String, String> thisSat = new HashMap<String, String>();
 
-                AttributesDao satDao = GPSgpkg.getAttributesDao("sat_data");
+                AttributesDao satDao = GPSgpkg.getAttributesDao(extTblName);
                 AttributesRow satrow = satDao.newRow();
 
                 satrow.setValue("svid", g.getSvid());
@@ -220,15 +233,21 @@ public class MainActivity extends AppCompatActivity {
                 satDao.insert(satrow);
 
                 SatInfo.put(hashkey, g);
+                meas_tv.setText(g.toString());
 
-                // TODO: link sat records to associated rcvr clock record
+                // add last measurement for each sat to hash
+                int satid = db.max(extTblName, "id", "id > 0", dummy);
+                SatRowsToMap.put(hashkey, satid);
 
+                // link sat records to associated rcvr clock record
+                AttributesDao mapDao = GPSgpkg.getAttributesDao(clkmapTblName);
+                AttributesRow maprow = mapDao.newRow();
+
+                maprow.setValue("base_id", clkid);
+                maprow.setValue("related_id", satid);
+
+                mapDao.insert(maprow);
             }
-
-//            JSONObject satJSON = new JSONObject(SatInfo);
-
-            TextView meas_tv = findViewById(R.id.measurement_text);
-            meas_tv.setText(displayTxt);
         }
     };
 
@@ -296,8 +315,26 @@ public class MainActivity extends AppCompatActivity {
             featDao.insert(frow);
 
 
-            // TODO: link location geometry row to associated sat records
+            // link location geometry row to associated sat records
+            GeoPackageCoreConnection db = GPSgpkg.getDatabase();
+            String[] dummy = {};
+            int locid = db.max(extTblName, "id", "id > 0", dummy);
 
+            // link point records to associated rsat records
+            AttributesDao mapDao = GPSgpkg.getAttributesDao(mapTblName);
+
+            HashMap<String, Integer> rows = (HashMap<String, Integer>) SatRowsToMap.clone();
+            SatRowsToMap.clear();
+
+            for (String skey : rows.keySet()) {
+                int sid = rows.get(skey);
+                AttributesRow maprow = mapDao.newRow();
+                maprow.setValue("base_id", locid);
+                maprow.setValue("related_id", sid);
+                mapDao.insert(maprow);
+            }
+
+            // update feature table bounding box if necessary
             boolean dirty = false;
             BoundingBox bb = featDao.getBoundingBox();
             if (loc.getLatitude() < bb.getMinLatitude()) {
@@ -317,13 +354,13 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (dirty) {
-                String sql = "UPDATE gpkg_contents SET " +
+                String bbsql = "UPDATE gpkg_contents SET " +
                         " min_x = " + bb.getMinLongitude() +
                         ", max_x = " + bb.getMaxLongitude() +
                         ", min_y = " + bb.getMinLatitude() +
                         ", max_y = " + bb.getMaxLatitude() +
                         " WHERE table_name = '" + PtsTable + "';";
-                GPSgpkg.execSQL(sql);
+                GPSgpkg.execSQL(bbsql);
             }
 
 //            String phoneNumber = "";
@@ -356,16 +393,6 @@ public class MainActivity extends AppCompatActivity {
                             Manifest.permission.SEND_SMS
         };
         ActivityCompat.requestPermissions(this, perms, 1);
-
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            stat_tv.setText("Location access denied.");
-        } else {
-            LocationManager locMgr = getSystemService(LocationManager.class);
-            locMgr.registerGnssMeasurementsCallback(MeasurementListener);
-            locMgr.registerGnssStatusCallback(StatusListener);
-            Criteria crit = new Criteria();
-            locMgr.requestLocationUpdates(locMgr.getBestProvider(crit, true), (long) 1000, (float) 0.0, locListener);
-        }
 
         String fileTime = now().toString();
         fileTime = fileTime.replace('/', '-');
@@ -431,7 +458,15 @@ public class MainActivity extends AppCompatActivity {
             extrel.setBaseTableName(PtsTable);
             extrel.setBasePrimaryColumn("id");
             extrel.setMappingTableName(mapTblName);
-            extrel.setRelatedTableName("sat_data");
+            extrel.setRelatedTableName(extTblName);
+            extrel.setRelatedPrimaryColumn("id");
+            extrel.setRelationName("simple_attributes");
+
+            extrel = new ExtendedRelation();
+            extrel.setBaseTableName(extTblName);
+            extrel.setBasePrimaryColumn("id");
+            extrel.setMappingTableName(clkmapTblName);
+            extrel.setRelatedTableName(clkTblName);
             extrel.setRelatedPrimaryColumn("id");
             extrel.setRelationName("simple_attributes");
 
@@ -521,6 +556,30 @@ public class MainActivity extends AppCompatActivity {
                     ");";
             db.execSQL(sql);
 
+            sql = "INSERT INTO gpkg_contents " +
+                    "(table_name, data_type, identifier) " +
+                    "VALUES ('" + mapTblName + "', 'attributes', '" + mapTblName + "');";
+            db.execSQL(sql);
+
+            sql = "INSERT INTO gpkgext_relations " +
+                    "(base_table_name, base_primary_column, related_table_name, related_primary_column, relation_name, mapping_table_name) " +
+                    "VALUES ('" +
+                    PtsTable + "', 'id', '" + extTblName + "', 'id', " +
+                    "'simple_attributes', '" + mapTblName + "');";
+            db.execSQL(sql);
+
+            sql = "INSERT INTO gpkg_contents " +
+                    "(table_name, data_type, identifier) " +
+                    "VALUES ('" + clkmapTblName + "', 'attributes', '" + clkmapTblName + "');";
+            db.execSQL(sql);
+
+            sql = "INSERT INTO gpkgext_relations " +
+                    "(base_table_name, base_primary_column, related_table_name, related_primary_column, relation_name, mapping_table_name) " +
+                    "VALUES ('" +
+                    extTblName + "', 'id', '" + clkTblName + "', 'id', " +
+                    "'simple_attributes', '" + clkmapTblName + "');";
+            db.execSQL(sql);
+
             List<String> tbls = GPSgpkg.getTables();
             tbls.add(GPSgpkg.getApplicationId());
 
@@ -533,6 +592,16 @@ public class MainActivity extends AppCompatActivity {
         GPSgpkg.close();
 
         GPSgpkg = GpkgManager.open(GpkgFilename, true);
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            stat_tv.setText("Location access denied.");
+        } else {
+            LocationManager locMgr = getSystemService(LocationManager.class);
+            locMgr.registerGnssMeasurementsCallback(MeasurementListener);
+            locMgr.registerGnssStatusCallback(StatusListener);
+            Criteria crit = new Criteria();
+            locMgr.requestLocationUpdates(locMgr.getBestProvider(crit, true), (long) 1000, (float) 0.0, locListener);
+        }
 
     }
 //////////////////////////////////////////////////////////////////////////////////////
