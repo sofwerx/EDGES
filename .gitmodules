@@ -1,0 +1,3 @@
+[submodule "TORGI"]
+	path = TORGI
+	url = git@github.com:sofwerx/TORGI.git
