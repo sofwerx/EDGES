@@ -1,3 +1,3 @@
-[submodule "TORGI"]
-	path = TORGI
-	url = git@github.com:sofwerx/TORGI.git
+[submodule "hrfSweepNative/app/src/main/cpp/hackrf"]
+	path = hrfSweepNative/app/src/main/cpp/hackrf
+	url = https://github.com/sofwerx/hackrf.git
