@@ -126,9 +126,9 @@ JNIEXPORT jstring JNICALL Java_org_sofwerx_hrfsweepnative_SensorInterface_showHa
                 read_partid_serialno.serial_no[2], read_partid_serialno.serial_no[3]);
 
         uint16_t scanFreqs[2] = {1,7200};
-        //rc = hackrf_init_sweep(radioDev, scanFreqs, 1, (8192 * 2), 20000000, 7500000, INTERLEAVED);
+        rc = hackrf_init_sweep(radioDev, scanFreqs, 1, (8192 * 2), 20000000, 7500000, INTERLEAVED);
 
-        rc = sweep_main(sweepBuf, sweepBufLen);
+//        rc = sweep_main(sweepBuf, sweepBufLen);
 
         if (rc == EXIT_SUCCESS) {
             sprintf(retstr, "%s\nSweep mode initialized successfully", retstr);

@@ -4,7 +4,7 @@
 # Sets the minimum version of CMake required to build the native library.
 
 cmake_minimum_required(VERSION 3.4.1)
-#set(GCC_COVERAGE_LINK_FLAGS -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/arm64-v8a)
+#set(GCC_COVERAGE_LINK_FLAGS -L/swx/local/swx-vmhost/edges/hrfSweepNative/app/libs/arm64-v8a)
 
 
 
@@ -24,7 +24,8 @@ add_library( # Sets the name of the library.
            )
 
 
-set(LINK_LIB_DIR /Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/arm64-v8a)
+# ${CMAKE_CURRENT_SOURCE_DIR} = /swx/local/swx-vmhost/edges/hrfSweepNative/app
+set(LINK_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libs/arm64-v8a)
 set(INCLUDE_DIR include)
 set(LIBUSB_ROOT_REL src/main/cpp/libusb)
 set(HACKRF_ROOT_REL src/main/cpp/hackrf)
@@ -106,10 +107,10 @@ target_link_libraries( # Specifies the target library.
 
 target_link_libraries(usb-lib ${log-lib})
 
-set_property(TARGET usb-lib APPEND_STRING PROPERTY LINK_FLAGS " -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/armeabi-v7a")
+set_property(TARGET usb-lib APPEND_STRING PROPERTY LINK_FLAGS " -L${CMAKE_CURRENT_SOURCE_DIR}/libs/armeabi-v7a")
 set_property(TARGET usb-lib APPEND_STRING PROPERTY LINK_FLAGS " -mfloat-abi=softfp")
 set_property(TARGET usb-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -mfloat-abi=softfp)
-set_property(TARGET usb-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/include)
+set_property(TARGET usb-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 
 target_link_libraries(hackrf-lib usb-lib)
@@ -118,10 +119,10 @@ target_link_libraries(hackrf-lib fftw3f)
 
 
 
-set_property(TARGET hackrf-lib APPEND_STRING PROPERTY LINK_FLAGS " -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/armeabi-v7a")
+set_property(TARGET hackrf-lib APPEND_STRING PROPERTY LINK_FLAGS " -L${CMAKE_CURRENT_SOURCE_DIR}/libs/armeabi-v7a")
 set_property(TARGET hackrf-lib APPEND_STRING PROPERTY LINK_FLAGS " -mfloat-abi=softfp")
 set_property(TARGET hackrf-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -mfloat-abi=softfp)
-set_property(TARGET hackrf-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/include)
+set_property(TARGET hackrf-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 
 target_link_libraries(native-lib usb-lib)
@@ -130,8 +131,8 @@ target_link_libraries(native-lib hackrf-lib)
 target_link_libraries(native-lib fftw3f)
 
 
-set_property(TARGET native-lib APPEND_STRING PROPERTY LINK_FLAGS " -L/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/libs/armeabi-v7a")
+set_property(TARGET native-lib APPEND_STRING PROPERTY LINK_FLAGS " -L${CMAKE_CURRENT_SOURCE_DIR}/libs/armeabi-v7a")
 set_property(TARGET native-lib APPEND_STRING PROPERTY LINK_FLAGS " -mfloat-abi=softfp")
 set_property(TARGET native-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -mfloat-abi=softfp)
-set_property(TARGET native-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I/Users/tbirch/SOFWERX/EDGES/dev/EDGES/hrfSweepNative/app/include)
+set_property(TARGET native-lib APPEND_STRING PROPERTY COMPILE_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/app/include)
 
