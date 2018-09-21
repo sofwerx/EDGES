@@ -1,12 +1,14 @@
 # Utility Scripts
 
+Please note, for Bash scripts you will need to run `chmod +x <filename>` before being able to run scripts. 
+
 ## EDGES_data_parser.sh
 
 This script takes the JSON file produced by EDGES and converts it into a CSV. It is important to note that the deliminator for this file is a space instead of the ususal commma. 
 ### Dependencies 
 You do not have to be connected to the internet to run this script. However, you do need to have `jq` installed before you run it. Once connected to the internet, run `sudo apt-get install jq` to acquire `jq`.
 ### How to Run
-The script will display some information about the process when you start. 
+The script will display some information about the process when you start. In terminal, type `./EDGES_data_parser.sh` and press enter. 
 * You start by inputting the file path for the data you want to process. For example: `/home/bob/Documents/EDGES_DATA.json `.
 * After this you will enter the path to the save location for the new csv. For example: `/home/bob/Documents/`
 * After this you will enter the file's new name. For example: `data.csv` .
@@ -21,3 +23,12 @@ You can install `r-base` by running `sudo apt-get install r-base`. This will all
 ### How to Run 
 In terminal, type `r -i EDGES_script.R`. You only need to supply the file path and name. For example, `/home/bob/Documents/data.csv` . This will create a new directory in the current user's Documents with the report and graphs in it. The directory will be "EDGES" followed by the current date. 
 Please note, if you run the script multiple times in the same day, change the directory name. The script will note execute correctly if there is another directory with the same name. Going into Documents and changing the name of the direcory once created is advised.  
+
+## Docker_Splunk_setup.sh
+
+This script will spin up a Docker container for Splunk.
+### Dependencies 
+There are a few dependencies to get Docker. Run this command: `sudo apt-get install apt-transport-https ca-certificates curl software-properties-common` to get the dependent files. Then run `sudo apt-get install docker-ce` to install Docker. To verify installation, run `sudo docker run hello-world`. 
+### How to Run
+In terminal, run `./Docker_Splunk_setup.sh` then press enter. The only thing it will ask you is for the password you want to use for the setup.
+Wait a few seconds.Splunk should now be running on localhost:8000. Another way to verify that Splunk is running is to check `docker ps` and you should see a Docker container running there that has Splunk in the image name. 
