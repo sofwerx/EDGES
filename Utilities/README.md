@@ -24,11 +24,10 @@ You can install `r-base` by running `sudo apt-get install r-base`. This will all
 In terminal, type `r -i EDGES_script.R`. You only need to supply the file path and name. For example, `/home/bob/Documents/data.csv` . This will create a new directory in the current user's Documents with the report and graphs in it. The directory will be "EDGES" followed by the current date. 
 Please note, if you run the script multiple times in the same day, change the directory name. The script will note execute correctly if there is another directory with the same name. Going into Documents and changing the name of the direcory once created is advised.  
 
-## Docker_Splunk_setup.sh
+## Splunk_Visualization
 
-This script will spin up a Docker container for Splunk.
+TSets up a Splunk instance on a Docker container. Comes with a prebuilt dashboard and shows you how to ingest your data. 
 ### Dependencies 
 There are a few dependencies to get Docker. Run this command: `sudo apt-get install apt-transport-https ca-certificates curl software-properties-common` to get the dependent files. Then run `sudo apt-get install docker-ce` to install Docker. To verify installation, run `sudo docker run hello-world`. 
 ### How to Run
-In terminal, run `./Docker_Splunk_setup.sh` then press enter. The only thing it will ask you is for the password you want to use for the setup.
-Wait a few seconds.Splunk should now be running on localhost:8000. Another way to verify that Splunk is running is to check `docker ps` and you should see a Docker container running there that has Splunk in the image name. 
+Follow README in directory. 
