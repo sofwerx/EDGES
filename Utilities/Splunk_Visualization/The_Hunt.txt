@@ -1,3 +1,6 @@
+<!-- Brett Waugh 
+     9 October 2018
+     The Hunt Dashboard -->
 <dashboard>
   <label>The Hunt</label>
   <description>Provides possible cell tower locations along path of data. Maps need to zoom out to view full image. Remember, towers sufficiently out of the path of the device cannot be accounted for.</description>
