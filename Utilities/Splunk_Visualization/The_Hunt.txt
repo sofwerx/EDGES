@@ -1,0 +1,177 @@
+<dashboard>
+  <label>The Hunt</label>
+  <description>Provides possible cell tower locations along path of data. Maps need to zoom out to view full image. Remember, towers sufficiently out of the path of the device cannot be accounted for.</description>
+  <row>
+    <panel>
+      <title>Unique Freq by Power</title>
+      <chart>
+        <search>
+          <query>sourcetype=*.csv  
+| chart dc(Frequency) by Power</query>
+          <earliest>0</earliest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Sat Imagery of Full Path</title>
+      <viz type="location_tracker_app.location_tracker">
+        <title>Zoom out for full image.</title>
+        <search>
+          <query>sourcetype=*.csv
+| dedup _time
+| table _time Geo_Latitude Geo_Longitude souce</query>
+          <earliest>0</earliest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="location_tracker_app.location_tracker.interval">10</option>
+        <option name="location_tracker_app.location_tracker.showTraces">1</option>
+        <option name="location_tracker_app.location_tracker.staticIcon">car</option>
+        <option name="location_tracker_app.location_tracker.tileSet">satellite_tiles</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <title>Street Imagery of Full Path</title>
+      <viz type="location_tracker_app.location_tracker">
+        <title>Zoom out for full image.</title>
+        <search>
+          <query>sourcetype=*.csv
+| dedup _time
+| table _time Geo_Latitude Geo_Longitude souce</query>
+          <earliest>0</earliest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="location_tracker_app.location_tracker.interval">10</option>
+        <option name="location_tracker_app.location_tracker.showTraces">1</option>
+        <option name="location_tracker_app.location_tracker.staticIcon">car</option>
+        <option name="location_tracker_app.location_tracker.tileSet">openstreetmap_tiles</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Possible Tower Locations</title>
+      <viz type="location_tracker_app.location_tracker">
+        <title>Zoom out for full image.</title>
+        <search>
+          <query>sourcetype=*.csv
+| fields Power Geo_Latitude Geo_Longitude
+| eval rPow= round(Power)
+| eval possibleTarget= if(rPow &gt; -15,"Ye", "Nah" )
+| search possibleTarget="Ye"
+| eval location = toString(Geo_Latitude) + "," + toString(Geo_Longitude) 
+| dedup location
+| table _time Geo_Latitude Geo_Longitude possibleTarget</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="location_tracker_app.location_tracker.interval">60</option>
+        <option name="location_tracker_app.location_tracker.showTraces">1</option>
+        <option name="location_tracker_app.location_tracker.staticIcon">car</option>
+        <option name="location_tracker_app.location_tracker.tileSet">dark_tiles</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+    <panel>
+      <title>Sat Imagery Possible Towers</title>
+      <viz type="location_tracker_app.location_tracker">
+        <title>Zoom out for full image.</title>
+        <search>
+          <query>sourcetype=*.csv
+| fields Power Geo_Latitude Geo_Longitude
+| eval rPow= round(Power)
+| eval possibleTarget= if(rPow &gt; -15,"Ye", "Nah" )
+| search possibleTarget="Ye"
+| eval location = toString(Geo_Latitude) + "," + toString(Geo_Longitude) 
+| dedup location
+| table _time Geo_Latitude Geo_Longitude possibleTarget</query>
+          <earliest>0</earliest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="location_tracker_app.location_tracker.interval">60</option>
+        <option name="location_tracker_app.location_tracker.showTraces">1</option>
+        <option name="location_tracker_app.location_tracker.staticIcon">car</option>
+        <option name="location_tracker_app.location_tracker.tileSet">satellite_tiles</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Possible Tower Locations</title>
+      <table>
+        <title>Latitudes/Longitudes from above. To export, hover over the table and click on the export button in the bottom right corner.</title>
+        <search>
+          <query>sourcetype=*.csv
+| fields Power Geo_Latitude Geo_Longitude
+| eval rPow= round(Power)
+| eval possibleTarget= if(rPow &gt; -15,"Ye", "Nah" )
+| search possibleTarget="Ye"
+| eval location = toString(Geo_Latitude) + "," + toString(Geo_Longitude) 
+| dedup location
+| table Geo_Latitude Geo_Longitude</query>
+          <earliest>0</earliest>
+          <latest></latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
