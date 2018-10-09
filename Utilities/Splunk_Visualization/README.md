@@ -10,7 +10,7 @@
    * [CREATING THE DASHBOARD](#creating-the-dashboard)
 - [EDGES DEEP DIVE](#edges-deep-dive)
    * [REQUIREMENTS](#deep-dive-requirements)
-   * [REMINDERS](deep-dive-reminders)
+   * [REMINDERS](#deep-dive-reminders)
 - [THE HUNT](#the-hunt)
    * [REQUIREMENTS](#hunt-requirements)
    * [REMINDERS](#hunt-reminders)
